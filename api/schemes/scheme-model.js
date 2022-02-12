@@ -1,3 +1,5 @@
+const db = require('../../data/db-config');
+
 function find() { // EXERCISE A
   /*
     1A- Study the SQL query below running it in SQLite Studio against `data/schemes.db3`.
@@ -15,9 +17,15 @@ function find() { // EXERCISE A
     2A- When you have a grasp on the query go ahead and build it in Knex.
     Return from this function the resulting dataset.
   */
+ return db('schemes as sc')
+  .leftJoin('steps as st', 'sc.scheme_id', 'st.scheme_id')
+  .select(['sc.scheme_id', 'sc.scheme_name'])
+  .count('st.step_id as number_of_steps')
+  .groupBy('sc.scheme_id')
+  .orderBy('sc.scheme_id')
 }
 
-function findById(scheme_id) { // EXERCISE B
+async function findById(scheme_id) { // EXERCISE B
   /*
     1B- Study the SQL query below running it in SQLite Studio against `data/schemes.db3`:
 
@@ -83,6 +91,19 @@ function findById(scheme_id) { // EXERCISE B
         "steps": []
       }
   */
+ const rows = await db('schemes as sc')
+      .leftJoin('steps as st', 'sc.scheme_id', 'st.scheme_id')
+      .select('sc.scheme_name', 'st.step_id', 'st.scheme_id', 'st.step_number', 'st.instructions', 'st.scheme_id')
+      .where('sc.scheme_id', scheme_id)
+      .orderBy('st.step_number')
+  
+  const result = {
+    scheme_id: rows[0].scheme_id,
+    scheme_name: rows[0].scheme_name,
+    steps: rows[0].step_id ? rows.map(step => ({ step_id: step.step_id, step_number: step.step_number, instructions: step.instructions })) : []
+  }
+
+  return result
 }
 
 function findSteps(scheme_id) { // EXERCISE C
@@ -106,12 +127,22 @@ function findSteps(scheme_id) { // EXERCISE C
         }
       ]
   */
+  return db('schemes as sc')
+    .leftJoin('steps as st', 'sc.scheme_id', 'st.scheme_id')
+    .select('st.step_id', 'st.step_number', 'st.instructions', 'sc.scheme_name')
+    .where('st.scheme_id', scheme_id)
+    .orderBy('st.step_number')
 }
 
 function add(scheme) { // EXERCISE D
   /*
     1D- This function creates a new scheme and resolves to _the newly created scheme_.
   */
+ return db('schemes')
+  .insert(scheme)
+  .then(([scheme_id]) => {
+    return db('schemes').where({ scheme_id }).first()
+  })
 }
 
 function addStep(scheme_id, step) { // EXERCISE E
@@ -120,6 +151,11 @@ function addStep(scheme_id, step) { // EXERCISE E
     and resolves to _all the steps_ belonging to the given `scheme_id`,
     including the newly created one.
   */
+ return db('steps')
+  .insert({ ...step, scheme_id})
+  .then(([step_id]) => { // eslint-disable-line
+    return findSteps(scheme_id)
+  })
 }
 
 module.exports = {
